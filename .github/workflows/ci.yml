@@ -38,3 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
+  opa-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: >-
+          docker run --rm
+          -v "$PWD/services/policy-engine/policies:/policies:ro"
+          openpolicyagent/opa:1.6.0 test /policies --verbose

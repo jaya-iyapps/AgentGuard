@@ -14,7 +14,7 @@ async def test_backend_health_reports_scaffold_not_enforcement():
         assert response.status_code == 200
         assert response.json()["mode"] == "scaffold"
         assert response.json()["enforcement_enabled"] is False
-        assert (await client.post("/v1/authorize", json={})).status_code == 404
+        assert (await client.post("/v1/authorize", json={})).status_code == 422
 
 
 @pytest.mark.anyio

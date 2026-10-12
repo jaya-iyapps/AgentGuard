@@ -6,11 +6,26 @@ services:
     environment:
       AG_ENV: development
       AG_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      AG_OPA_URL: http://opa:8181
+      AG_OPA_TIMEOUT_SECONDS: "1.0"
+      AG_PDP_CONTEXT_PATH: ${AG_PDP_CONTEXT_PATH:-}
+    volumes:
+      - ./.runtime/pdp-config:/app/.runtime/pdp-config:ro
+    depends_on:
+      opa:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
+  opa:
+    image: openpolicyagent/opa:1.6.0
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies/authorize.rego"]
+    ports:
+      - "127.0.0.1:8181:8181"
+    volumes:
+      - ./services/policy-engine/policies:/policies:ro
   gateway:
     build: .
     command: ["uvicorn", "agentguard_gateway.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8001"]

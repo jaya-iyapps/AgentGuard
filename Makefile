@@ -2,7 +2,7 @@ PYTHON ?= python3
 VENV := .venv/bin/python
 NPM := npm --prefix apps/dashboard
 
-.PHONY: setup setup-python setup-frontend env dev backend gateway frontend test lint format build check contracts contracts-check smoke docker-up docker-down
+.PHONY: setup setup-python setup-frontend env dev backend gateway frontend test lint format build check contracts contracts-check smoke docker-up docker-down pdp-init test-pdp opa opa-test
 
 setup: setup-python setup-frontend env
 
@@ -63,3 +63,15 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+pdp-init:
+	$(VENV) services/policy-engine/scripts/init_context.py
+
+test-pdp:
+	$(VENV) -m pytest services/policy-engine/tests
+
+opa:
+	opa run --server --addr=127.0.0.1:8181 services/policy-engine/policies/authorize.rego
+
+opa-test:
+	opa test services/policy-engine/policies --verbose

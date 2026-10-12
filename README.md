@@ -5,10 +5,14 @@ continuous authorization system for autonomous agents. The hackathon problem is:
 
 > Build a policy engine that re-evaluates authorization on every sensitive action an agent takes.
 
-This repository prepares four independent workstreams. It is **not an MVP** and
-does not provide security enforcement. The runnable parts are two FastAPI health
-services and a React starter screen that checks backend connectivity. Policy and
-gateway placeholders always return `DENY / NOT_IMPLEMENTED`.
+This repository prepares four independent workstreams. This branch adds the
+initial OPA-backed `POST /v1/authorize` Policy Decision Point. It authenticates a
+configured adapter, resolves server-owned facts, and returns correlated ALLOW/DENY
+decisions. Protected execution, graph analysis, and deployed Salesforce integration
+remain future work. The gateway placeholder still always denies.
+
+See [PDP setup and security limits](docs/policy-pdp.md) for OPA, local credential
+generation, and the required downstream decision-correlation protocol.
 
 ## Prerequisites
 
@@ -37,7 +41,8 @@ three processes; Ctrl-C stops all three.
 |---|---|---|
 | Frontend | http://localhost:5173 | Project shell and backend status |
 | Backend | http://127.0.0.1:8000/health | Typed health response |
-| Backend API docs | http://127.0.0.1:8000/docs | Documents health only |
+| Backend API docs | http://127.0.0.1:8000/docs | Health and `POST /v1/authorize` |
+| OPA | http://127.0.0.1:8181 | Rego decision service; start separately or through Compose |
 | Gateway shell | http://127.0.0.1:8001/health | Health only; `/mcp` is not registered |
 
 For independent terminals, use `make backend`, `make gateway`, and `make frontend`.
@@ -63,6 +68,8 @@ docker compose up --build
 docker compose down
 ```
 
+Compose also starts OPA. To enable authenticated PDP decisions, run `make pdp-init`
+and set `AG_PDP_CONTEXT_PATH` as documented in `docs/policy-pdp.md` first.
 Compose binds published ports to loopback. Container images are for development,
 not a production deployment. Containers need rebuilding after source changes;
 the native workflow provides reload. No database is provisioned in the scaffold.
@@ -126,13 +133,15 @@ jointly before teammates change their dependent implementations.
 
 ## Implemented versus planned
 
-Working scaffold: package imports, configuration, backend/gateway health endpoints,
-CORS configuration, frontend shell, shared contracts, synthetic examples, tests,
-and development commands.
+Implemented: the initial OPA-backed authorization endpoint, server-owned synthetic
+context resolution, response correlation, and failure-path tests. The surrounding
+scaffold includes package imports, health endpoints, CORS, the frontend shell,
+shared contracts, fixtures, and development commands.
 
-Planned, not implemented: policy evaluation, graph traversal or risk detection,
-authentication, provenance persistence, revocation, real MCP transport or tools,
-Salesforce callouts/data mutations, authorization APIs, and the final dashboard.
+Planned: graph traversal/risk detection, production identity integration,
+PostgreSQL provenance and audit persistence, real MCP tools, Salesforce
+callouts/data mutations, and the final dashboard. Permission changes in the local
+context file are re-read on each authorization request.
 React Flow, NetworkX, and the MCP SDK are declared dependencies for those future
 workstreams. They do not imply those features are present.
 

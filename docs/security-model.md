@@ -1,20 +1,21 @@
 # Security boundaries for future implementation
 
-This scaffold is **not a security product**. Health routes are unauthenticated.
-No sensitive operation or data is available. The policy and gateway stubs always
-deny with `NOT_IMPLEMENTED`; no HTTP route exposes an allow decision.
+Health routes are unauthenticated. The initial PDP authenticates explicitly
+configured adapter credentials and evaluates trusted facts through OPA; it returns
+correlated decisions and never executes a protected operation. The gateway stub
+still denies. See [PDP limits and correlation requirements](policy-pdp.md).
 
 The next implementation must establish these boundaries explicitly:
 
 | Boundary | Required behavior | Current state |
 |---|---|---|
 | Agent → MCP gateway | Authenticate transport, bind credential to agent | Interface only |
-| Salesforce → backend | Authenticate adapter and verify org/user binding | Interface only |
-| Agent claims → verified facts | Resolve identity, labels, permissions independently | Separate contract types |
+| Salesforce → backend | Authenticate adapter and verify org/user binding | PDP bearer binding; org/user verification still planned |
+| Agent claims → verified facts | Resolve identity, labels, permissions independently | Explicit server-owned file resolver; separate contract types |
 | Authorization → execution | Deny on error, timeout, unknown/expired decision | No executor exists |
 | Derived artifacts | Preserve trusted source classification/provenance | Contract only |
 | Retries | Bind idempotency to principal, operation, resource, arguments | Not implemented |
-| Revocation | Re-read current permission state for sensitive actions | Not implemented |
+| Revocation | Re-read current permission state for sensitive actions | Per-request file reload; persistent state still planned |
 | Audit | Distinguish attempted, authorized, executed, and blocked | Event schema only |
 | Administration | Keep policy administration separate from agent credentials | Not implemented |
 
