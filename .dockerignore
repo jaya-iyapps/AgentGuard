@@ -1,0 +1,11 @@
+.git
+.env
+.venv
+**/node_modules
+**/dist
+**/__pycache__
+.runtime
+.pytest_cache
+.ruff_cache
+*.docx
+deep-research-report.md

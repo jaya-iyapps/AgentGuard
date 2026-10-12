@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "Classification": {
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "RESTRICTED"
+      ],
+      "title": "Classification",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Future adapters construct this after authentication and server-side resolution.",
+  "properties": {
+    "adapter_id": {
+      "minLength": 1,
+      "title": "Adapter Id",
+      "type": "string"
+    },
+    "agent_id": {
+      "minLength": 1,
+      "title": "Agent Id",
+      "type": "string"
+    },
+    "resource_classification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Classification"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "surface": {
+      "enum": [
+        "mcp",
+        "salesforce",
+        "test"
+      ],
+      "title": "Surface",
+      "type": "string"
+    },
+    "verified_provenance_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Verified Provenance Refs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "agent_id",
+    "adapter_id",
+    "surface"
+  ],
+  "title": "TrustedContext",
+  "type": "object"
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "title": "Action",
+      "type": "string"
+    },
+    "agent_id": {
+      "title": "Agent Id",
+      "type": "string"
+    },
+    "decision_id": {
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "execution_outcome": {
+      "enum": [
+        "SUCCEEDED",
+        "FAILED",
+        "BLOCKED"
+      ],
+      "title": "Execution Outcome",
+      "type": "string"
+    },
+    "input_provenance": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Input Provenance",
+      "type": "array"
+    },
+    "output_provenance": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Output Provenance",
+      "type": "array"
+    },
+    "resource_id": {
+      "title": "Resource Id",
+      "type": "string"
+    },
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "decision_id",
+    "agent_id",
+    "session_id",
+    "action",
+    "resource_id",
+    "input_provenance",
+    "output_provenance",
+    "execution_outcome",
+    "timestamp"
+  ],
+  "title": "RuntimeEvent",
+  "type": "object"
+}

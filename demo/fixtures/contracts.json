@@ -1,0 +1,68 @@
+{
+  "AuthorizationRequest": {
+    "request_id": "example-request-001",
+    "session_id": "example-session",
+    "action": "email.send",
+    "resource": {
+      "id": "synthetic-report-001",
+      "type": "report",
+      "asserted_classification": "PUBLIC"
+    },
+    "destination": "recipient@example.test",
+    "provenance_refs": ["synthetic-case-001"],
+    "context": {"purpose": "synthetic contract example; not executed"}
+  },
+  "TrustedContext": {
+    "agent_id": "example-agent",
+    "adapter_id": "example-adapter",
+    "surface": "test",
+    "resource_classification": "CONFIDENTIAL",
+    "verified_provenance_refs": ["synthetic-case-001"]
+  },
+  "AuthorizationResponse": {
+    "contract_version": "1.0.0",
+    "policy_decision": {
+      "decision_id": "example-decision-001",
+      "request_id": "example-request-001",
+      "decision": "DENY",
+      "reason_code": "NOT_IMPLEMENTED",
+      "explanation": "Synthetic example. Authorization is not implemented.",
+      "policy_version": "scaffold-deny-all",
+      "timestamp": "2026-10-12T00:00:00Z"
+    }
+  },
+  "AgentCapabilities": {
+    "agent_id": "example-agent",
+    "actions": ["case.read", "email.send"],
+    "resource_ids": ["synthetic-case-001"],
+    "status": "ACTIVE"
+  },
+  "CapabilityGraph": {
+    "nodes": [
+      {"id": "example-agent", "label": "Synthetic agent", "kind": "agent"},
+      {"id": "email.send", "label": "Email action", "kind": "action"}
+    ],
+    "edges": [
+      {
+        "id": "example-edge",
+        "source": "example-agent",
+        "target": "email.send",
+        "relationship": "CAN_INVOKE",
+        "evidence": "declared"
+      }
+    ],
+    "semantics": "potential_capabilities"
+  },
+  "RuntimeEvent": {
+    "event_id": "example-event-001",
+    "decision_id": "example-decision-001",
+    "agent_id": "example-agent",
+    "session_id": "example-session",
+    "action": "email.send",
+    "resource_id": "synthetic-report-001",
+    "input_provenance": ["synthetic-case-001"],
+    "output_provenance": [],
+    "execution_outcome": "BLOCKED",
+    "timestamp": "2026-10-12T00:00:00Z"
+  }
+}
