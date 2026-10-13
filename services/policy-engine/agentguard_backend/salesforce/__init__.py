@@ -6,6 +6,8 @@ from agentguard_contracts import TrustedContext
 
 
 class SalesforceIdentityResolver(Protocol):
-    def resolve(self, authenticated_subject: str, org_id: str, execution_user_id: str) -> TrustedContext:
+    def resolve(
+        self, authenticated_subject: str, org_id: str, execution_user_id: str
+    ) -> TrustedContext:
         """Resolve an authenticated adapter binding, never an LLM-supplied agent name."""
         ...

@@ -12,9 +12,15 @@ Both services implement `GET /health` using `HealthResponse`:
 {"status":"ok","service":"agentguard-backend","version":"0.1.0","mode":"scaffold","enforcement_enabled":false}
 ```
 
-FastAPI also exposes `/docs`, `/redoc`, and `/openapi.json`. No authorization,
-administration, graph, event-ingestion, or MCP endpoint exists. Unimplemented
-routes return 404; health does not imply enforcement readiness.
+The backend now also implements `POST /v1/authorize`, accepting the existing
+`AuthorizationRequest` and returning `AuthorizationResponse`. Requests authenticate
+with a server-configured bearer binding. Invalid schemas return 422; unauthenticated
+or failed policy evaluation returns structured DENY. No protected action executes.
+See [PDP configuration and required response headers](policy-pdp.md).
+
+FastAPI also exposes `/docs`, `/redoc`, and `/openapi.json`. Administration, graph,
+event-ingestion, and MCP endpoints remain absent from the integration scaffold.
+Health does not imply OPA readiness or protected execution.
 
 ## Contracts for future endpoints
 

@@ -4,6 +4,8 @@ Follow the root README for `make setup` and `make dev`. Use Python 3.11–3.14 a
 Node 22.12+. All commands assume the repository root unless stated otherwise.
 No Salesforce credentials, Docker daemon, or database are necessary for native
 development.
+The optional persisted PDP requires separate [PostgreSQL setup](postgresql-context.md);
+default file-backed tests remain independent of it.
 
 ## Configuration
 
