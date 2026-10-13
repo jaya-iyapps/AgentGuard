@@ -44,6 +44,10 @@ partially written configuration temporarily denies rather than grants access.
 | `AG_PDP_CONTEXT_PATH` | empty | Explicit server-owned credential/resource/permission configuration |
 | `AG_PDP_DECISION_TTL_SECONDS` | `5` | Response expiry interval, at most 15 seconds |
 
+`AG_PDP_CONTEXT_BACKEND=postgres` selects the database implementation instead of
+the default file resolver. See [database setup, migrations and provenance](postgresql-context.md)
+for its required URL, driver, seeding, audit behavior and validation limits.
+
 `/health` remains the existing liveness contract. Its `enforcement_enabled=false`
 is accurate: this service returns decisions and performs no protected execution.
 It does not claim OPA readiness; authenticated authorization fails closed while
@@ -88,7 +92,7 @@ Unknown actions, including the MCP branch's `archive.local_demo`, default to DEN
 Authentication identifies a configured adapter/agent binding. The request's
 `context`, `provenance_refs`, and classification assertions are untrusted and do
 not populate policy facts. Resources, provenance references, owner, classification,
-and permission states come from the server-owned file. The input does not contain
+and permission states come from the server-owned file or database. The input does not contain
 the bearer credential or raw case contents.
 
 ## Required adapter correlation — coordinate with MCP and Salesforce owners
@@ -143,15 +147,18 @@ and separate per-adapter/agent credentials outside isolated local development.
 OPA's management API is unauthenticated in this local Compose configuration and
 must remain private; do not expose it publicly.
 
-The PDP trusts the configured OPA and context administrator. There is no durable
-decision ledger, one-shot token consumption, or distributed atomic authorization
+The PDP trusts the configured OPA and context administrator. PostgreSQL mode now
+persists decision audits before returning ALLOW; file mode has no durable ledger.
+There is no one-shot token consumption or distributed atomic authorization
 and execution. Expiry limits stale use but does not remove the authorization-to-
 execution race. No model-generated provenance is ingested or declassified.
 
-Next, implement a PostgreSQL-backed resolver behind `TrustedContextResolver`,
-with credential/principal bindings, versioned permission state, resource ownership,
-and trusted artifact provenance/classification. Add transactional migrations and
-auditable events before introducing artifact registration or protected execution.
+The PostgreSQL resolver, resource ownership, inherited artifact classification,
+revocations and audit migrations are implemented behind `TrustedContextResolver`.
+Real PostgreSQL and OPA HTTP tests passed in the project lead's developer terminal;
+see [verification evidence](verification.md). Next project this persisted context
+into a read-only NetworkX graph before introducing trusted
+artifact registration or protected execution.
 
 References: [OPA Data API](https://www.openpolicyagent.org/docs/rest-api),
 [Rego](https://www.openpolicyagent.org/docs/policy-language), and

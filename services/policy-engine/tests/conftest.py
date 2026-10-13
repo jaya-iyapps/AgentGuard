@@ -55,7 +55,9 @@ def context_path(tmp_path, context_document):
 
 @pytest.fixture
 def settings(context_path):
-    return Settings(_env_file=None, pdp_context_path=str(context_path))
+    # Isolate file fixtures from a developer's exported PostgreSQL runtime mode.
+    # Database tests explicitly inject their resolver or override this setting.
+    return Settings(_env_file=None, pdp_context_backend="file", pdp_context_path=str(context_path))
 
 
 @pytest.fixture

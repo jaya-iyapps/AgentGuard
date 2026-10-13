@@ -1,4 +1,6 @@
-from pydantic import AnyHttpUrl, Field
+from typing import Literal
+
+from pydantic import AnyHttpUrl, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +18,9 @@ class Settings(BaseSettings):
     opa_policy_version: str = "pdp-v1"
     pdp_context_path: str = ""
     pdp_decision_ttl_seconds: int = Field(default=5, ge=1, le=15)
+    pdp_context_backend: Literal["file", "postgres"] = "file"
+    database_url: SecretStr = SecretStr("")
+    database_timeout_seconds: int = Field(default=3, ge=1, le=30)
 
     @property
     def allowed_origins(self) -> list[str]:

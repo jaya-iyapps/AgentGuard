@@ -87,13 +87,13 @@ async def test_missing_or_invalid_identity_denies_before_opa(
 
 
 @pytest.mark.anyio
-async def test_confidential_egress_ignores_caller_claims(settings, credential, authorization_request):
+async def test_confidential_egress_ignores_caller_claims(
+    settings, credential, authorization_request
+):
     authorization_request.update(
         action="email.send",
         destination="outsider@example.test",
-        resource={
-            "id": "report-1042", "type": "report", "asserted_classification": "PUBLIC"
-        },
+        resource={"id": "report-1042", "type": "report", "asserted_classification": "PUBLIC"},
         provenance_refs=["fake-public-source"],
         context={"agent_id": "admin", "classification": "PUBLIC"},
     )

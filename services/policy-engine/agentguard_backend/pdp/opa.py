@@ -28,8 +28,7 @@ def validate_result(result: OPAResult, document: PolicyInput, policy_version: st
 
 
 class PolicyClient(Protocol):
-    async def evaluate(self, document: PolicyInput) -> OPAResult:
-        ...
+    async def evaluate(self, document: PolicyInput) -> OPAResult: ...
 
 
 class OPAClient:

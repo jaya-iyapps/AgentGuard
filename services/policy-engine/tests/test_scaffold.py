@@ -6,9 +6,9 @@ from agentguard_contracts import AuthorizationRequest, ResourceReference, Truste
 
 
 @pytest.mark.anyio
-async def test_backend_health_reports_scaffold_not_enforcement():
+async def test_backend_health_reports_scaffold_not_enforcement(settings):
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=create_app()), base_url="http://test"
+        transport=httpx.ASGITransport(app=create_app(settings)), base_url="http://test"
     ) as client:
         response = await client.get("/health")
         assert response.status_code == 200
@@ -18,9 +18,9 @@ async def test_backend_health_reports_scaffold_not_enforcement():
 
 
 @pytest.mark.anyio
-async def test_cors_permits_local_frontend_but_not_arbitrary_origins():
+async def test_cors_permits_local_frontend_but_not_arbitrary_origins(settings):
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=create_app()), base_url="http://test"
+        transport=httpx.ASGITransport(app=create_app(settings)), base_url="http://test"
     ) as client:
         allowed = await client.get("/health", headers={"Origin": "http://localhost:5173"})
         denied = await client.get("/health", headers={"Origin": "https://untrusted.example"})

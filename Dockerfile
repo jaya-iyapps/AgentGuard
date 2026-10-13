@@ -4,7 +4,7 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY packages/contracts ./packages/contracts
 COPY services ./services
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir '.[postgres]'
 RUN useradd --create-home --uid 10001 agentguard
 USER agentguard
 EXPOSE 8000

@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from agentguard_contracts import AuthorizationRequest, AuthorizationResponse, PolicyDecision
 
+from agentguard_backend.pdp.audit import AuditUnavailable, DecisionAuditWriter
 from agentguard_backend.pdp.context import ContextUnavailable, TrustedContextResolver
 from agentguard_backend.pdp.models import DecisionBinding, PolicyInput
 from agentguard_backend.pdp.opa import (
@@ -28,15 +29,23 @@ def request_digest(request: AuthorizationRequest) -> str:
 
 
 class DecisionService:
-    def __init__(self, resolver: TrustedContextResolver, opa: PolicyClient, policy_version: str):
+    def __init__(
+        self,
+        resolver: TrustedContextResolver,
+        opa: PolicyClient,
+        policy_version: str,
+        audit: DecisionAuditWriter | None = None,
+    ):
         self.resolver = resolver
         self.opa = opa
         self.policy_version = policy_version
+        self.audit = audit
 
     async def authorize(
         self, request: AuthorizationRequest, authorization: str | None
     ) -> AuthorizationResponse:
         outcome = "DENY"
+        facts = None
         try:
             facts = self.resolver.resolve(authorization, request)
             if not facts.identity.verified:
@@ -75,6 +84,19 @@ class DecisionService:
             policy_version=self.policy_version,
             timestamp=datetime.now(timezone.utc),
         )
+        if self.audit is not None:
+            try:
+                self.audit.record(request, decision, facts)
+            except AuditUnavailable:
+                # A failed audit must never let an otherwise valid ALLOW escape.
+                decision = decision.model_copy(
+                    update={
+                        "decision": "DENY",
+                        "reason_code": "CG-AUDIT-UNAVAILABLE",
+                        "explanation": "Authorization audit persistence is unavailable.",
+                    }
+                )
+                reason = decision.reason_code
         log.info(
             "decision_id=%s decision=%s reason=%s", decision.decision_id, decision.decision, reason
         )

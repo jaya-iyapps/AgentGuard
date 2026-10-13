@@ -13,6 +13,8 @@ remain future work. The gateway placeholder still always denies.
 
 See [PDP setup and security limits](docs/policy-pdp.md) for OPA, local credential
 generation, and the required downstream decision-correlation protocol.
+The PDP also has an opt-in [PostgreSQL context and provenance store](docs/postgresql-context.md)
+with migrations, fresh permission/revocation resolution and durable decision audits.
 
 ## Prerequisites
 
@@ -72,7 +74,9 @@ Compose also starts OPA. To enable authenticated PDP decisions, run `make pdp-in
 and set `AG_PDP_CONTEXT_PATH` as documented in `docs/policy-pdp.md` first.
 Compose binds published ports to loopback. Container images are for development,
 not a production deployment. Containers need rebuilding after source changes;
-the native workflow provides reload. No database is provisioned in the scaffold.
+the native workflow provides reload. PostgreSQL is optional, enabled through the
+`database` profile; follow [database setup](docs/postgresql-context.md) for its
+explicit password, migrations, seeding and resolver selection.
 
 ## Validation commands
 
@@ -84,6 +88,7 @@ make contracts-check   # Generated schemas must match their Python source
 make check             # All of the above
 make smoke             # HTTP smoke checks while make dev is running
 make format            # Apply Python and frontend formatting
+make test-db           # Trusted context, provenance, audit and migration tests
 ```
 
 After an intentional contract edit, run `make contracts`, review the generated
@@ -101,6 +106,9 @@ services/policy-engine/
     policy/                          PolicyEvaluator interface; DENY stub
     graph/                           GraphBuilder interface; no algorithms
     salesforce/                      Identity resolver interface
+    pdp/                             Existing OPA client and decision coordinator
+    db/                              Trusted facts, provenance and audit persistence
+  migrations/                        Alembic schema revisions
 services/mcp-gateway/
   agentguard_gateway/                 Settings, interfaces, disabled client
 integrations/salesforce/              Salesforce DX project and DENY-only Apex stub
@@ -134,20 +142,22 @@ jointly before teammates change their dependent implementations.
 ## Implemented versus planned
 
 Implemented: the initial OPA-backed authorization endpoint, server-owned synthetic
-context resolution, response correlation, and failure-path tests. The surrounding
+file and PostgreSQL context resolution, inherited artifact classification,
+database decision audits, response correlation, and failure-path tests. The surrounding
 scaffold includes package imports, health endpoints, CORS, the frontend shell,
 shared contracts, fixtures, and development commands.
 
 Planned: graph traversal/risk detection, production identity integration,
-PostgreSQL provenance and audit persistence, real MCP tools, Salesforce
+production provenance ingestion and immutable audit controls, real MCP tools, Salesforce
 callouts/data mutations, and the final dashboard. Permission changes in the local
 context file are re-read on each authorization request.
 React Flow, NetworkX, and the MCP SDK are declared dependencies for those future
 workstreams. They do not imply those features are present.
 
 The Apex class is a source starter and has not been compiled/deployed in an org.
-See [Salesforce setup](docs/salesforce-setup.md). The scaffold is unauthenticated
-and suitable only for local development: no sensitive endpoints are exposed.
+See [Salesforce setup](docs/salesforce-setup.md). Health routes and the gateway
+shell are unauthenticated; the PDP requires a configured credential for ALLOW.
+This is local development infrastructure, not production security enforcement.
 
 ## Troubleshooting
 

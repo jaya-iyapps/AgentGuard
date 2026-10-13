@@ -57,11 +57,15 @@ def main() -> None:
     try:
         for command in commands:
             processes.append(subprocess.Popen(command, cwd=ROOT, start_new_session=True))
-        print("Dashboard: http://localhost:5173 · backend: :8000 · gateway shell: :8001", flush=True)
+        print(
+            "Dashboard: http://localhost:5173 · backend: :8000 · gateway shell: :8001", flush=True
+        )
         while True:
             for process in processes:
                 if process.poll() is not None:
-                    raise SystemExit(f"Development process exited with status {process.returncode}.")
+                    raise SystemExit(
+                        f"Development process exited with status {process.returncode}."
+                    )
             time.sleep(0.3)
     except KeyboardInterrupt:
         pass

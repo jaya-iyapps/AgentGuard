@@ -15,10 +15,13 @@ dependencies = [
   "httpx==0.28.1",
   "networkx==3.6.1",
   "mcp==1.27.2",
+  "SQLAlchemy==2.0.51",
+  "alembic==1.18.5",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest==9.1.1", "ruff==0.11.13", "jsonschema==4.26.0"]
+postgres = ["psycopg[binary]==3.3.6"]
 
 [tool.setuptools.packages.find]
 where = ["packages/contracts", "services/policy-engine", "services/mcp-gateway"]
