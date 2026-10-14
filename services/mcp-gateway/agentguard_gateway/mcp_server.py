@@ -24,6 +24,9 @@ from mcp.types import CallToolResult, TextContent
 from agentguard_gateway.interfaces import (
     AuthorizationClient,
     DisabledAuthorizationClient,
+    McpAccessTokenTrustedContextResolver,
+    McpCallerAuthentication,
+    TrustedContextProvider,
     TrustedContextResolver,
 )
 
@@ -184,7 +187,7 @@ class AuthenticatedArchiveHandler:
     """Keep credential resolution separate from authorization and execution."""
 
     archive_demo: LocalArchiveDemo
-    trusted_context_resolver: TrustedContextResolver
+    trusted_context_resolver: TrustedContextProvider
 
     async def invoke(
         self,
@@ -206,8 +209,14 @@ class AuthenticatedArchiveHandler:
 def create_mcp_server(
     authorization_client: AuthorizationClient | None = None,
     executor: LocalArchiveExecutor | None = None,
+    caller_authentication: McpCallerAuthentication | None = None,
 ) -> FastMCP:
-    """Create the gateway's MCP server with its one fail-closed demo tool."""
+    """Create the gateway's MCP server with its one fail-closed demo tool.
+
+    ``caller_authentication`` supplies the verified-token identity mapper.
+    HTTP bearer verification is applied by the gateway application's middleware.
+    Without it, calls deny before authorization.
+    """
     archive_demo = LocalArchiveDemo(
         authorization_client=(
             authorization_client
@@ -216,7 +225,14 @@ def create_mcp_server(
         ),
         executor=executor if executor is not None else InMemoryLocalArchiveStub(),
     )
-    archive_handler = AuthenticatedArchiveHandler(archive_demo, TrustedContextResolver())
+    archive_handler = AuthenticatedArchiveHandler(
+        archive_demo,
+        (
+            McpAccessTokenTrustedContextResolver(caller_authentication.trusted_context_mapper)
+            if caller_authentication is not None
+            else TrustedContextResolver()
+        ),
+    )
     server = FastMCP(
         "AgentGuard MCP gateway",
         instructions=(
@@ -230,16 +246,19 @@ def create_mcp_server(
         name="archive_local_demonstration",
         description=(
             "Demonstration only. The default executor records a synthetic record in memory. "
-            "This transport currently denies every call because no CallerAuthenticator is "
-            "configured; a future authenticated deployment must use only the allowlisted "
+            "The default transport denies every call because no caller authentication is "
+            "configured. An explicitly configured deployment accepts only SDK-verified bearer "
+            "tokens with server-owned identity mapping, then uses only the allowlisted "
             "archive_record downstream tool after authorization."
         ),
     )
     async def archive_local_demonstration(record_id: str) -> CallToolResult:
         """Request the local demonstration archive for one synthetic record."""
-        # The MCP transport has no credential extractor or CallerAuthenticator. Passing
-        # no credential to the explicit authentication boundary intentionally denies
-        # before authorization or execution rather than inventing caller identity.
+        # In an authenticated deployment the official MCP middleware has already
+        # verified the bearer token and made its access token request-scoped. The
+        # resolver maps that verified token through server-owned bindings. In the
+        # default configuration no resolver is installed, so this denies before
+        # authorization or execution rather than inventing caller identity.
         return await archive_handler.invoke(
             record_id=record_id,
             credential=None,

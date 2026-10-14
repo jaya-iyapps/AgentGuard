@@ -2,7 +2,12 @@ import asyncio
 
 import pytest
 from agentguard_contracts import AuthorizationRequest, ResourceReference, TrustedContext
-from agentguard_gateway.interfaces import DisabledAuthorizationClient, TrustedContextResolver
+from agentguard_gateway.interfaces import (
+    DisabledAuthorizationClient,
+    McpAccessTokenTrustedContextResolver,
+    TrustedContextResolver,
+)
+from mcp.server.auth.provider import AccessToken
 
 
 def test_disabled_client_fails_closed():
@@ -89,3 +94,65 @@ def test_trusted_context_resolver_returns_verified_context():
     )
 
     assert result == expected
+
+
+class RecordingAccessTokenMapper:
+    def __init__(self, response: object = None, error: Exception | None = None) -> None:
+        self.response = response
+        self.error = error
+        self.access_tokens: list[AccessToken] = []
+
+    async def resolve(self, access_token: AccessToken):
+        self.access_tokens.append(access_token)
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+def test_mcp_access_token_resolver_denies_raw_credentials_and_missing_sdk_context():
+    mapper = RecordingAccessTokenMapper(
+        response=TrustedContext(agent_id="agent", adapter_id="adapter", surface="mcp")
+    )
+    resolver = McpAccessTokenTrustedContextResolver(mapper, access_token_supplier=lambda: None)
+
+    assert asyncio.run(resolver.resolve("caller-supplied-token")) is None
+    assert asyncio.run(resolver.resolve(None)) is None
+    assert mapper.access_tokens == []
+
+
+@pytest.mark.parametrize(
+    ("response", "error"),
+    [
+        ({"agent_id": "caller-controlled"}, None),
+        (None, RuntimeError("server-owned mapper unavailable")),
+    ],
+)
+def test_mcp_access_token_resolver_fails_closed_on_invalid_mapper_output(response, error):
+    token = AccessToken(token="verified", client_id="client", scopes=["archive.execute"])
+    mapper = RecordingAccessTokenMapper(response=response, error=error)
+    resolver = McpAccessTokenTrustedContextResolver(mapper, access_token_supplier=lambda: token)
+
+    assert asyncio.run(resolver.resolve(None)) is None
+    assert mapper.access_tokens == [token]
+
+
+def test_mcp_access_token_resolver_revalidates_server_owned_mapper_output():
+    token = AccessToken(token="verified", client_id="client", scopes=["archive.execute"])
+    invalid_model = TrustedContext.model_construct(
+        agent_id="agent", adapter_id="adapter", surface="untrusted-surface"
+    )
+    mapper = RecordingAccessTokenMapper(response=invalid_model)
+    resolver = McpAccessTokenTrustedContextResolver(mapper, access_token_supplier=lambda: token)
+
+    assert asyncio.run(resolver.resolve(None)) is None
+    assert mapper.access_tokens == [token]
+
+
+def test_mcp_access_token_resolver_returns_context_only_from_sdk_verified_token():
+    token = AccessToken(token="verified", client_id="client", scopes=["archive.execute"])
+    expected = TrustedContext(agent_id="mapped-agent", adapter_id="mapped-adapter", surface="mcp")
+    mapper = RecordingAccessTokenMapper(response=expected)
+    resolver = McpAccessTokenTrustedContextResolver(mapper, access_token_supplier=lambda: token)
+
+    assert asyncio.run(resolver.resolve(None)) == expected
+    assert mapper.access_tokens == [token]

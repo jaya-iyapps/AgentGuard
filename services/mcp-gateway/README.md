@@ -57,6 +57,16 @@ implementation must validate the transport credential and derive
 `TrustedContext` solely from verified, server-owned data; tool arguments,
 headers other than the credential, and caller JSON must not establish identity.
 
+The gateway also provides an injectable `McpCallerAuthentication` resource-server
+boundary for the pinned MCP SDK. A deployment supplies the SDK `TokenVerifier`,
+approved OAuth resource-server settings, and a server-owned mapper from the
+SDK-verified access token to `TrustedContext`. The SDK rejects missing, invalid,
+expired, or insufficient-scope bearer tokens before MCP tool dispatch. The mapper
+is still required to derive `agent_id` and `adapter_id` from server-owned bindings,
+not from arbitrary token claims. This integration is deliberately not configured
+from environment variables: until the deployment supplies those reviewed pieces,
+the default transport remains deny-all.
+
 Before implementing it, the lead must provide:
 
 - identity-provider issuer URL and the exact token-validation mechanism (JWKS

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Callable, Protocol
 from uuid import uuid4
 
 from agentguard_contracts import (
@@ -9,6 +9,8 @@ from agentguard_contracts import (
     PolicyDecision,
     TrustedContext,
 )
+from mcp.server.auth.middleware.auth_context import get_access_token
+from mcp.server.auth.provider import AccessToken, TokenVerifier
 
 
 class CallerAuthenticator(Protocol):
@@ -21,6 +23,35 @@ class CallerAuthenticator(Protocol):
         and an agent-binding source.
         """
         ...
+
+
+class TrustedContextProvider(Protocol):
+    """Resolve trusted context without exposing a caller-controlled identity path."""
+
+    async def resolve(self, credential: str | None) -> TrustedContext | None:
+        """Return validated trusted context or ``None`` when authentication fails."""
+        ...
+
+
+class VerifiedAccessTokenMapper(Protocol):
+    """Map an SDK-verified access token to server-owned AgentGuard identity.
+
+    Implementations must not treat arbitrary token claims as an AgentGuard agent
+    or adapter identifier. They must use a reviewed, server-owned binding source.
+    """
+
+    async def resolve(self, access_token: AccessToken) -> TrustedContext:
+        """Return identity facts for an access token already verified by the SDK."""
+        ...
+
+
+@dataclass(frozen=True)
+class McpCallerAuthentication:
+    """Explicit verifier and server-owned identity mapping for MCP callers."""
+
+    token_verifier: TokenVerifier
+    trusted_context_mapper: VerifiedAccessTokenMapper
+    required_scopes: tuple[str, ...] = ("archive.execute",)
 
 
 @dataclass
@@ -42,6 +73,38 @@ class TrustedContextResolver:
 
         try:
             raw_context = await self.caller_authenticator.authenticate(credential)
+            if isinstance(raw_context, TrustedContext):
+                raw_context = raw_context.model_dump()
+            return TrustedContext.model_validate(raw_context)
+        except Exception:
+            return None
+
+
+@dataclass
+class McpAccessTokenTrustedContextResolver:
+    """Resolve context from the MCP SDK's already verified bearer-token context.
+
+    Raw credentials are intentionally unavailable at this boundary. The SDK
+    authentication middleware verifies the bearer token before MCP dispatch; this
+    resolver then asks a server-owned mapper for AgentGuard identity facts and
+    revalidates the returned contract model. Any absent/malformed context or
+    mapper error is a denial.
+    """
+
+    trusted_context_mapper: VerifiedAccessTokenMapper
+    access_token_supplier: Callable[[], AccessToken | None] = get_access_token
+
+    async def resolve(self, credential: str | None) -> TrustedContext | None:
+        # This resolver is for the MCP middleware path only. A raw credential
+        # supplied by a handler caller must never bypass that verified context.
+        if credential is not None:
+            return None
+
+        try:
+            access_token = self.access_token_supplier()
+            if not isinstance(access_token, AccessToken):
+                return None
+            raw_context = await self.trusted_context_mapper.resolve(access_token)
             if isinstance(raw_context, TrustedContext):
                 raw_context = raw_context.model_dump()
             return TrustedContext.model_validate(raw_context)
