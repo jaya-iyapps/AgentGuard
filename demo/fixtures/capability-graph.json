@@ -1,0 +1,26 @@
+{
+  "agent_id": "support-agent",
+  "destination": {
+    "id": "synthetic-external-email",
+    "address": "outsider@example.test",
+    "location": "EXTERNAL"
+  },
+  "flows": [
+    {
+      "id": "synthetic-case-read",
+      "action": "case.read",
+      "resource_id": "case-1042",
+      "destination_id": null,
+      "assumption": "Assume the future case.read tool consumes exactly its scoped Case; no executor is implemented.",
+      "evidence_ref": "demo/fixtures/capability-graph.json#synthetic-case-read"
+    },
+    {
+      "id": "synthetic-report-email",
+      "action": "email.send",
+      "resource_id": "report-1042",
+      "destination_id": "synthetic-external-email",
+      "assumption": "Assume the future email.send tool can consume this report and address this external mailbox; transfer has NOT been verified or executed.",
+      "evidence_ref": "demo/fixtures/capability-graph.json#synthetic-report-email"
+    }
+  ]
+}

@@ -1,12 +1,11 @@
 """Coordinate trusted resolution and OPA; never execute an agent action."""
 
-import hashlib
-import json
 import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from agentguard_contracts import AuthorizationRequest, AuthorizationResponse, PolicyDecision
+from agentguard_contracts.canonical import request_digest
 
 from agentguard_backend.pdp.audit import AuditUnavailable, DecisionAuditWriter
 from agentguard_backend.pdp.context import ContextUnavailable, TrustedContextResolver
@@ -19,13 +18,6 @@ from agentguard_backend.pdp.opa import (
 )
 
 log = logging.getLogger("agentguard.pdp")
-
-
-def request_digest(request: AuthorizationRequest) -> str:
-    canonical = json.dumps(
-        request.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    )
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class DecisionService:

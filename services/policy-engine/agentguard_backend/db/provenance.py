@@ -1,5 +1,7 @@
 """Bounded lineage validation and classification inheritance, without NetworkX."""
 
+from collections.abc import Callable, Mapping, Sequence
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,10 +15,37 @@ class InconsistentProvenance(Exception):
 
 
 def trusted_lineage(session: Session, resource_id: str) -> tuple[Resource, str, list[str]]:
+    return _validate_lineage(
+        resource_id,
+        lambda identifier: session.get(Resource, identifier),
+        lambda identifier: list(
+            session.scalars(
+                select(ProvenanceEdge.parent_id).where(ProvenanceEdge.child_id == identifier)
+            )
+        ),
+    )
+
+
+def trusted_lineage_records(
+    resource_id: str,
+    resources: Mapping[str, Resource],
+    parents: Mapping[str, Sequence[str]],
+) -> tuple[Resource, str, list[str]]:
+    """The same PDP validation over a bulk-loaded snapshot; no per-node SQL queries."""
+    return _validate_lineage(
+        resource_id, resources.get, lambda identifier: parents.get(identifier, ())
+    )
+
+
+def _validate_lineage(
+    resource_id: str,
+    resource_for: Callable[[str], Resource | None],
+    parents_for: Callable[[str], Sequence[str]],
+) -> tuple[Resource, str, list[str]]:
     visited: dict[str, str] = {}
     visiting: set[str] = set()
     ancestors: set[str] = set()
-    target = session.get(Resource, resource_id)
+    target = resource_for(resource_id)
     if target is None:
         raise InconsistentProvenance("Resource does not exist")
 
@@ -25,7 +54,7 @@ def trusted_lineage(session: Session, resource_id: str) -> tuple[Resource, str, 
             raise InconsistentProvenance("Cyclic or excessive lineage")
         if identifier in visited:
             return visited[identifier]
-        resource = session.get(Resource, identifier)
+        resource = resource_for(identifier)
         if (
             resource is None
             or resource.verified_at is None
@@ -33,11 +62,7 @@ def trusted_lineage(session: Session, resource_id: str) -> tuple[Resource, str, 
             or resource.classification not in CLASSIFICATION_RANK
         ):
             raise InconsistentProvenance("Unverified or conflicting source")
-        parents = list(
-            session.scalars(
-                select(ProvenanceEdge.parent_id).where(ProvenanceEdge.child_id == identifier)
-            )
-        )
+        parents = parents_for(identifier)
         if (
             resource.origin not in {"SOURCE", "DERIVED"}
             or (resource.origin == "SOURCE" and parents)

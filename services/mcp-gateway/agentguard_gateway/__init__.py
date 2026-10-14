@@ -1,1 +1,1 @@
-"""MCP integration scaffold. No tools or transport handlers are registered."""
+"""Fail-closed MCP gateway with a local demonstration/stub archive tool."""

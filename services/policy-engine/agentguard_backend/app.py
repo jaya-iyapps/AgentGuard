@@ -6,6 +6,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from agentguard_backend.config import Settings
+from agentguard_backend.graph.api import graph_router
+from agentguard_backend.graph.service import GraphService
 from agentguard_backend.pdp.audit import DecisionAuditWriter
 from agentguard_backend.pdp.context import FileContextResolver, TrustedContextResolver
 from agentguard_backend.pdp.opa import OPAClient, PolicyClient
@@ -17,6 +19,7 @@ def create_app(
     resolver: TrustedContextResolver | None = None,
     opa: PolicyClient | None = None,
     audit: DecisionAuditWriter | None = None,
+    graph_service: GraphService | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
     database_engine = None
@@ -30,6 +33,7 @@ def create_app(
         )
         resolver = PostgresContextResolver(sessions)
         audit = DatabaseAuditWriter(sessions)
+        graph_service = graph_service or GraphService(sessions)
         database_engine = sessions.kw["bind"]
 
     @asynccontextmanager
@@ -84,4 +88,5 @@ def create_app(
         response.headers["X-AgentGuard-Decision-Expires-At"] = expiry.isoformat()
         return decision
 
+    app.include_router(graph_router(graph_service, settings.env))
     return app

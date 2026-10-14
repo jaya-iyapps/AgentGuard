@@ -1,5 +1,52 @@
 # Bootstrap verification
 
+## CapabilityGraph validation — 2026-10-13
+
+Implemented on `feat/capability-graph`, based on committed PDP/PostgreSQL milestone
+`58c2c38` and integration merge `375b464`. The clean Git checkpoint was confirmed
+before changes; the project lead created the feature branch in the writable host
+terminal. No commit, push, merge or credential changes were made in this session.
+
+| Environment | Check | Result |
+|---|---|---|
+| Sandbox | Complete Python suite | **152 passed, 3 skipped** |
+| Sandbox | New graph/API suite | **65 passed, 1 skipped** |
+| Sandbox | Real CLI Rego policy suite | **14/14 passed**, policies unchanged |
+| Sandbox | Ruff lint / formatting | Passed; all 56 Python files formatted |
+| Sandbox | Shared contract validation | Passed; all 10 schemas unchanged |
+| Sandbox | Migration tests | **3 passed, 1 skipped**: SQLite round-trip, legacy row preservation and PostgreSQL offline DDL |
+| Sandbox | Disposable graph/PDP demo | 6 nodes / 6 edges; potential finding 1 → 0 after email permission revocation; real Rego read ALLOW / disclosure DENY / revoked DENY |
+
+The previous 86 passing Python cases are retained; the additional 66 passing
+cases cover graph projection, evidence-backed bounded analysis, protected API
+behavior and legacy migration preservation. The new graph/API tests use isolated
+SQLite by default. With `AG_TEST_DATABASE_URL` they also run against fresh
+UUID-named PostgreSQL schemas; CI already opts in to a disposable database.
+The three explicit skips are the real PostgreSQL graph opt-in check, real
+PostgreSQL migration round-trip, and live OPA HTTP authorization. No PostgreSQL
+graph or revision-0002 live migration result is claimed here.
+
+ASGI graph API tests execute the actual synchronous FastAPI handlers in worker
+threads. This restricted sandbox stalls even a trivial AnyIO worker completion
+unless a scheduler timer wakes the event loop; a minimal reproduction confirmed
+the behavior. The graph API test fixture supplies only a periodic timer and a
+30-second safety deadline. It does not mock graph queries, database resolution or
+authentication, and production threadpool behavior is unchanged. This is
+in-process API verification, not a live listening server/browser check.
+
+The synthetic graph/PDP vertical slice uses real `opa eval` through an in-process
+test transport, plus a CLI demonstration using the same Rego directly. Neither
+is a live OPA HTTP connection. No email/Salesforce operations exist in this demo;
+potential findings and prior ALLOW audits explicitly do not establish execution.
+
+`git fetch origin --prune` remains blocked by read-only `.git/FETCH_HEAD`; current
+remote state beyond cached references could not be refreshed. Socket/Docker
+restrictions and unconfigured live-test URLs prevent live-service checks. The
+previous developer-terminal **56 database** and **2 real OPA** results below
+belong to the PDP milestone, not this graph/migration iteration. Follow
+[graph setup and verification](capabilitygraph.md) to validate the new migration
+and graph against a disposable PostgreSQL database in the developer terminal.
+
 ## Latest PDP persistence validation — 2026-10-13
 
 On `feat/policy-pdp`, the existing PDP was preserved and PostgreSQL context,
@@ -93,3 +140,15 @@ the MIT license was restored byte-for-byte from `origin/main`.
 
 The acceptance criteria requiring a fresh online install, complete lint/type
 checks, and live service startup are not claimed as verified here.
+
+
+## Full-project integration, 2026-10-14
+
+Current validation is recorded in [integration provenance and verification](integration.md).
+The integrated full suite ran with disposable real PostgreSQL 16 and OPA 1.6.0:
+**282 passed with zero skips**, plus **14/14** real Rego tests. The direct gateway
+HTTP-client/backend ASGI/live PostgreSQL/live OPA check also passed. Earlier
+results above describe prior source milestones, not this integration session.
+Both Docker images and the full Compose migration/seed/startup sequence passed,
+including the dashboard proxy, MCP authentication denial and fail-closed OPA
+outage. A missing installed-package graph fixture was fixed and revalidated.

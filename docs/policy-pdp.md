@@ -118,10 +118,17 @@ mismatches deny. `HTTP 200` alone never authorizes an operation. Do not reuse
 decisions or treat request IDs as execution idempotency keys. The OPA client also
 checks echoed request ID, action, digest, and version before returning any ALLOW.
 
-The gateway's current client interface returns only the JSON model, and its demo
-checks only ALLOW/DENY. Its eventual HTTP client must validate the headers before
-constructing that model. Those adapter changes are deliberately left to their
-owners; review this header protocol before enabling their authenticated execution.
+The integrated gateway's `HTTPAuthorizationClient` validates these headers,
+request ID, policy version, `CG-ALLOW-001` for ALLOW, and UTC decision timestamps
+before returning the shared JSON model. It rejects missing/expired headers,
+future timestamps, TTLs above 15 seconds, redirects, malformed bodies and HTTP
+errors. Canonicalization lives in `agentguard_contracts.canonical`; the PDP
+continues to export `request_digest` for existing consumers. No API schema changed.
+Its credential and agent/adapter binding come from server configuration, not tool
+arguments. This does not implement MCP caller authentication: transport calls
+still supply no trusted identity and deny. The current Rego still denies the
+archive action. Complete verified caller binding and separately reviewed action
+policy before enabling any protected transport execution.
 
 ## Tests
 

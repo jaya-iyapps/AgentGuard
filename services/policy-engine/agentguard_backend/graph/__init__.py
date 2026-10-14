@@ -1,4 +1,7 @@
-"""Graph interface only. NetworkX is available for teammate 1's future work."""
+"""Stable graph protocol; implementation lives in projector/repository/analyzer.
+
+Unpaired capability lists are selectors/summary, never an action/resource product.
+"""
 
 from typing import Protocol
 

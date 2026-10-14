@@ -90,11 +90,75 @@ class Permission(Base):
 
 class ProvenanceEdge(Base):
     __tablename__ = "pdp_provenance_edges"
-    __table_args__ = (CheckConstraint("parent_id <> child_id", name="ck_provenance_not_self"),)
+    __table_args__ = (
+        CheckConstraint("parent_id <> child_id", name="ck_provenance_not_self"),
+        CheckConstraint("evidence IN ('declared', 'observed')", name="ck_provenance_evidence"),
+        CheckConstraint(
+            "evidence <> 'observed' OR "
+            "(evidence_ref IS NOT NULL AND length(trim(evidence_ref)) > 0)",
+            name="ck_provenance_observed_ref",
+        ),
+    )
 
     parent_id: Mapped[str] = mapped_column(ForeignKey("pdp_resources.id"), primary_key=True)
     child_id: Mapped[str] = mapped_column(ForeignKey("pdp_resources.id"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    evidence: Mapped[str] = mapped_column(String(16), default="declared", server_default="declared")
+    evidence_ref: Mapped[str | None] = mapped_column(String(256))
+
+
+class GraphDestination(Base):
+    """Curated analysis metadata, NOT the PDP's approved-destination allowlist."""
+
+    __tablename__ = "graph_destinations"
+    __table_args__ = (
+        CheckConstraint(STATUS_CHECK, name="ck_graph_destination_status"),
+        CheckConstraint(
+            "location IN ('INTERNAL', 'EXTERNAL', 'UNKNOWN')", name="ck_graph_destination_location"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    address: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
+    location: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ToolDataFlow(Base):
+    """Trusted administrative declaration of ONE scoped tool input/output relationship.
+
+    VERIFIED means the tool contract was verified, not that a tool was executed.
+    DECLARED requires an explicit assumption; neither form grants permission.
+    """
+
+    __tablename__ = "graph_tool_data_flows"
+    __table_args__ = (
+        CheckConstraint(STATUS_CHECK, name="ck_graph_flow_status"),
+        CheckConstraint(
+            "verification IN ('DECLARED', 'VERIFIED')", name="ck_graph_flow_verification"
+        ),
+        CheckConstraint(
+            "verification <> 'DECLARED' OR "
+            "(assumption IS NOT NULL AND length(trim(assumption)) > 0)",
+            name="ck_graph_flow_assumption",
+        ),
+        CheckConstraint(
+            "verification <> 'VERIFIED' OR verified_at IS NOT NULL",
+            name="ck_graph_flow_verified_at",
+        ),
+        CheckConstraint("length(trim(evidence_ref)) > 0", name="ck_graph_flow_evidence_ref"),
+    )
+
+    id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    permission_id: Mapped[str] = mapped_column(ForeignKey("pdp_permissions.id"), index=True)
+    input_resource_id: Mapped[str] = mapped_column(ForeignKey("pdp_resources.id"), nullable=False)
+    destination_id: Mapped[str | None] = mapped_column(ForeignKey("graph_destinations.id"))
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    verification: Mapped[str] = mapped_column(String(16), nullable=False)
+    assumption: Mapped[str | None] = mapped_column(Text)
+    evidence_ref: Mapped[str] = mapped_column(String(256), nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Revocation(Base):

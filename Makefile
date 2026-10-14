@@ -2,7 +2,7 @@ PYTHON ?= python3
 VENV := .venv/bin/python
 NPM := npm --prefix apps/dashboard
 
-.PHONY: setup setup-python setup-frontend env dev backend gateway frontend test lint format build check contracts contracts-check smoke docker-up docker-down pdp-init test-pdp opa opa-test db-up db-migrate db-seed test-db
+.PHONY: setup setup-python setup-frontend env dev backend gateway frontend test lint format build check contracts contracts-check smoke pdp-init test-pdp test-gateway test-integration opa opa-test db-up db-migrate db-seed test-db graph-demo graph-demo-seed test-graph docker-up docker-down
 
 setup: setup-python setup-frontend env
 
@@ -11,7 +11,7 @@ setup-python:
 	$(VENV) -m pip install -e '.[dev]'
 
 setup-frontend:
-	$(NPM) install
+	$(NPM) ci
 
 env:
 	$(PYTHON) scripts/init_env.py
@@ -70,6 +70,12 @@ pdp-init:
 test-pdp:
 	$(VENV) -m pytest services/policy-engine/tests
 
+test-gateway:
+	$(VENV) -m pytest services/mcp-gateway/tests
+
+test-integration:
+	$(VENV) -m pytest tests/test_gateway_pdp.py
+
 opa:
 	opa run --server --addr=127.0.0.1:8181 services/policy-engine/policies/authorize.rego
 
@@ -87,3 +93,12 @@ db-seed:
 
 test-db:
 	$(VENV) -m pytest services/policy-engine/tests/test_database.py services/policy-engine/tests/test_migrations.py
+
+graph-demo-seed:
+	$(VENV) services/policy-engine/scripts/seed_graph_demo.py --synthetic-demo
+
+test-graph:
+	$(VENV) -m pytest services/policy-engine/tests/test_graph.py services/policy-engine/tests/test_graph_api.py
+
+graph-demo:
+	$(VENV) demo/scenarios/capability_graph.py

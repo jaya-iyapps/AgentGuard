@@ -56,8 +56,9 @@ export function App() {
         ))}
       </section>
       <aside>
-        <strong>Scaffold only.</strong> No real authorization, tool execution, Salesforce connection,
-        or graph analysis is implemented. Authorization placeholders always return DENY.
+        <strong>Development dashboard.</strong> This view shows service health. The backend provides
+        authorization and graph APIs. MCP caller authentication and the Salesforce adapter remain
+        pending.
       </aside>
       <footer>
         Start with README.md · Interfaces in packages/contracts · Tasks in docs/team-roles.md

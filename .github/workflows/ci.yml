@@ -1,4 +1,4 @@
-name: Validate scaffold
+name: Validate AgentGuard integration
 on:
   push:
   pull_request:
@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install
+      - run: npm ci
         working-directory: apps/dashboard
       - run: npm run lint && npm run format:check && npm test && npm run build
         working-directory: apps/dashboard

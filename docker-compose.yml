@@ -7,7 +7,10 @@ services:
       AG_ENV: development
       AG_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       AG_OPA_URL: http://opa:8181
-      AG_OPA_TIMEOUT_SECONDS: "1.0"
+      AG_OPA_DECISION_PATH: ${AG_OPA_DECISION_PATH:-agentguard/authz/decision}
+      AG_OPA_TIMEOUT_SECONDS: ${AG_OPA_TIMEOUT_SECONDS:-1.0}
+      AG_OPA_POLICY_VERSION: ${AG_OPA_POLICY_VERSION:-pdp-v1}
+      AG_PDP_DECISION_TTL_SECONDS: ${AG_PDP_DECISION_TTL_SECONDS:-5}
       AG_PDP_CONTEXT_PATH: ${AG_PDP_CONTEXT_PATH:-}
       AG_PDP_CONTEXT_BACKEND: ${AG_PDP_CONTEXT_BACKEND:-file}
       AG_DATABASE_URL: ${AG_DATABASE_URL:-}
@@ -52,6 +55,14 @@ services:
       - "127.0.0.1:8001:8001"
     environment:
       AG_POLICY_URL: http://backend:8000
+      AG_POLICY_CREDENTIAL: ${AG_POLICY_CREDENTIAL:-}
+      AG_POLICY_AGENT_ID: ${AG_POLICY_AGENT_ID:-}
+      AG_POLICY_ADAPTER_ID: ${AG_POLICY_ADAPTER_ID:-}
+      AG_POLICY_VERSION: ${AG_OPA_POLICY_VERSION:-pdp-v1}
+      AG_POLICY_TIMEOUT_SECONDS: ${AG_POLICY_TIMEOUT_SECONDS:-2.0}
+    depends_on:
+      backend:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
       interval: 10s

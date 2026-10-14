@@ -106,8 +106,14 @@ for the same principal share them. Adapter-specific scopes and external org/user
 verification remain future work.
 
 `make db-migrate` applies upgrades. Downgrading to base **drops all eight tables
-and their data**; round-trip tests do this only in isolated test stores. Back up
+from this revision and their data**, plus any subsequently added tables;
+round-trip tests do this only in isolated test stores. Back up
 and review migrations before applying them to a shared database.
+
+The graph milestone adds revision **0002_capability_graph**: two curated graph
+tables and declared/observed provenance evidence columns. Legacy rows remain
+declared, and the PDP decision contract/permissions/allowlist are unchanged.
+See [graph migration and trusted evidence](capabilitygraph.md#additive-database-migration-team-review-required).
 
 ## Provenance and fresh resolution
 
@@ -196,11 +202,13 @@ or access Docker.
   Timeouts bound stalls; async/threadpool execution and query optimization should
   precede production load.
 
-Next implement a **read-only NetworkX projection** of principal, permission,
-resource and provenance tables with explicit edge types and revocation state.
-Separate potential capability paths from stored derivation and authorization
-attempts. A graph path or ALLOW decision is not proof of execution or leakage;
-the deterministic PDP remains the authority.
+The next milestone's **read-only NetworkX projection** is now implemented with
+exact scoped permission/data-flow edges, revocation state, provenance cycle
+checks and bounded potential-disclosure analysis. It separates potential paths,
+stored derivation and authorization attempts; it does not infer execution.
+See [CapabilityGraph and subsequent work](capabilitygraph.md). The deterministic
+PDP remains the authority; production writers/manifest ingestion and richer
+action chains remain subsequent work.
 
 References: [SQLAlchemy transactions](https://docs.sqlalchemy.org/en/20/orm/session_transaction.html),
 [Alembic supplied connections](https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-connection-across-one-or-more-programmatic-migration-commands),
