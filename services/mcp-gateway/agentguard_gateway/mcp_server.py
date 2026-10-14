@@ -1,11 +1,13 @@
 """Fail-closed MCP tools for the AgentGuard gateway.
 
-The archive tool in this module is a local demonstration/stub.  It has no
-production archive implementation and never contacts an external service.
+The default archive executor is a local demonstration/stub. An explicitly
+configured forwarder contacts one approved downstream MCP tool only after
+authorization succeeds.
 """
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from contextlib import AbstractAsyncContextManager
+from typing import Callable, Protocol
 from uuid import uuid4
 
 from agentguard_contracts import (
@@ -14,6 +16,7 @@ from agentguard_contracts import (
     ResourceReference,
     TrustedContext,
 )
+from mcp.client.session import ClientSession
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent
 
@@ -26,6 +29,33 @@ class LocalArchiveExecutor(Protocol):
     async def archive(self, record_id: str) -> None:
         """Record a local demonstration archive operation."""
         ...
+
+
+APPROVED_DOWNSTREAM_ARCHIVE_TOOL = "archive_record"
+
+
+@dataclass
+class McpArchiveForwarder:
+    """Forward the demo archive to one explicitly approved downstream MCP tool.
+
+    The factory is deliberately lazy: constructing this executor does not create
+    a downstream client.  Callers must pass through ``LocalArchiveDemo.invoke``
+    and receive a matching ALLOW before the factory is called.
+    """
+
+    client_factory: Callable[[], AbstractAsyncContextManager[ClientSession]]
+
+    async def archive(self, record_id: str) -> None:
+        async with self.client_factory() as client:
+            tools = await client.list_tools()
+            if APPROVED_DOWNSTREAM_ARCHIVE_TOOL not in {tool.name for tool in tools.tools}:
+                raise RuntimeError("approved downstream archive tool is not advertised")
+            result = await client.call_tool(
+                APPROVED_DOWNSTREAM_ARCHIVE_TOOL,
+                {"record_id": record_id},
+            )
+            if result.isError:
+                raise RuntimeError("downstream archive tool returned an error")
 
 
 @dataclass
@@ -116,15 +146,18 @@ class LocalArchiveDemo:
                 f"{decision.explanation} The local demonstration/stub archive was not performed.",
             )
 
-        await self.executor.archive(record_id)
+        try:
+            await self.executor.archive(record_id)
+        except Exception:
+            return _denied(
+                "DOWNSTREAM_UNAVAILABLE",
+                "The downstream archive was not confirmed and was not retried.",
+            )
         return CallToolResult(
             content=[
                 TextContent(
                     type="text",
-                    text=(
-                        "Local demonstration/stub archive recorded in memory only; "
-                        "no production archive or external service was used."
-                    ),
+                    text="Archive operation completed after authorization.",
                 )
             ]
         )
