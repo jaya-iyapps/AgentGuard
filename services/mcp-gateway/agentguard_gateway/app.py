@@ -3,11 +3,24 @@ from contextlib import asynccontextmanager
 from agentguard_contracts import HealthResponse
 from fastapi import FastAPI
 
-from agentguard_gateway.mcp_server import create_mcp_server
+from agentguard_gateway.config import GatewaySettings
+from agentguard_gateway.mcp_server import McpArchiveForwarder, create_mcp_server
 
 
-def create_app() -> FastAPI:
-    mcp_server = create_mcp_server()
+def create_app(settings: GatewaySettings | None = None) -> FastAPI:
+    """Create the gateway with an optional, explicitly configured archive endpoint.
+
+    Supplying an endpoint only creates a lazy downstream factory. The mounted
+    transport still has no credential extractor or caller authenticator and
+    therefore remains deny-all until real identity integration is provided.
+    """
+    settings = settings or GatewaySettings()
+    executor = (
+        McpArchiveForwarder.from_streamable_http_endpoint(str(settings.archive_mcp_url))
+        if settings.archive_mcp_url is not None
+        else None
+    )
+    mcp_server = create_mcp_server(executor=executor)
     mcp_app = mcp_server.streamable_http_app()
 
     @asynccontextmanager
@@ -19,7 +32,10 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="AgentGuard MCP gateway",
-        description="Fail-closed MCP gateway with a local demonstration/stub archive tool.",
+        description=(
+            "Fail-closed MCP gateway. Its default transport has no configured caller "
+            "authenticator and therefore denies tool execution."
+        ),
         version="0.1.0",
         lifespan=lifespan,
     )

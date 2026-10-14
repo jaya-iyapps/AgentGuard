@@ -48,7 +48,7 @@ three processes; Ctrl-C stops all three.
 | Backend | http://127.0.0.1:8000/health | Typed health response |
 | Backend API docs | http://127.0.0.1:8000/docs | Authorization and protected read-only graph APIs |
 | OPA | http://127.0.0.1:8181 | Rego decision service; start separately or through Compose |
-| Gateway shell | http://127.0.0.1:8001/health | Health only; `/mcp` is not registered |
+| Gateway shell | http://127.0.0.1:8001/health | Health plus fail-closed `/mcp`; no caller authenticator is configured, so tool calls deny |
 
 For independent terminals, use `make backend`, `make gateway`, and `make frontend`.
 The frontend forwards `/api/health` to the backend through Vite's development
@@ -115,7 +115,8 @@ services/policy-engine/
     db/                              Trusted facts, provenance and audit persistence
   migrations/                        Alembic schema revisions
 services/mcp-gateway/
-  agentguard_gateway/                 Settings, interfaces, disabled client
+  agentguard_gateway/                 Fail-closed gateway, interfaces and disabled client
+  agentguard_archive_mcp/             Separate deterministic demonstration archive MCP server
 integrations/salesforce/              Salesforce DX project and DENY-only Apex stub
 packages/contracts/
   agentguard_contracts/               Authoritative Pydantic models

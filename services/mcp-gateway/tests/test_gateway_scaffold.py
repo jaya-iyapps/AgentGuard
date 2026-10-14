@@ -7,8 +7,10 @@ pytest.importorskip("mcp", reason="The pinned MCP SDK is required for gateway te
 
 from agentguard_contracts import AuthorizationResponse, PolicyDecision, TrustedContext
 from agentguard_gateway.app import create_app
-from agentguard_gateway.interfaces import DisabledAuthorizationClient
+from agentguard_gateway.config import GatewaySettings
+from agentguard_gateway.interfaces import DisabledAuthorizationClient, TrustedContextResolver
 from agentguard_gateway.mcp_server import (
+    AuthenticatedArchiveHandler,
     InMemoryLocalArchiveStub,
     LocalArchiveDemo,
 )
@@ -44,6 +46,12 @@ class FailingAuthorizationClient:
         raise RuntimeError("authorization transport failed")
 
 
+class TestCallerAuthenticator:
+    async def authenticate(self, credential: str) -> TrustedContext:
+        assert credential == "verified-test-credential"
+        return TrustedContext(agent_id="a", adapter_id="test", surface="mcp")
+
+
 @pytest.mark.anyio
 async def test_gateway_preserves_health_and_removes_other_execution_surfaces():
     async with httpx.AsyncClient(
@@ -71,11 +79,35 @@ async def test_mcp_tools_list_and_call_deny_without_a_verified_caller():
                     )
 
     assert [tool.name for tool in tools.tools] == ["archive_local_demonstration"]
-    assert "local demonstration/stub" in tools.tools[0].description.lower()
+    assert "demonstration only" in tools.tools[0].description.lower()
+    assert "denies every call" in tools.tools[0].description.lower()
     assert tools.tools[0].inputSchema["required"] == ["record_id"]
     assert result.isError is True
     assert "AUTHENTICATION_REQUIRED" in result.content[0].text
     assert "not performed" in result.content[0].text
+
+
+@pytest.mark.anyio
+async def test_configured_downstream_endpoint_still_denies_without_identity():
+    settings = GatewaySettings(
+        _env_file=None, archive_mcp_url="http://127.0.0.1:65535/mcp"
+    )
+    app = create_app(settings)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8001"
+        ) as client:
+            async with streamable_http_client(
+                "http://127.0.0.1:8001/mcp", http_client=client
+            ) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    result = await session.call_tool(
+                        "archive_local_demonstration", {"record_id": "synthetic-record"}
+                    )
+
+    assert result.isError is True
+    assert "AUTHENTICATION_REQUIRED" in result.content[0].text
 
 
 @pytest.mark.anyio
@@ -161,6 +193,25 @@ async def test_matching_allow_is_required_before_local_archive_side_effect():
     result = await archive_demo.invoke(
         record_id="synthetic-record",
         trusted=trusted,
+        request_id="r",
+        session_id="s",
+    )
+
+    assert result.isError is False
+    assert executor.archived_record_ids == ["synthetic-record"]
+
+
+@pytest.mark.anyio
+async def test_authenticated_archive_handler_uses_only_authenticator_derived_context():
+    executor = InMemoryLocalArchiveStub()
+    handler = AuthenticatedArchiveHandler(
+        LocalArchiveDemo(AllowingAuthorizationClient(decision_request_id="r"), executor),
+        TrustedContextResolver(TestCallerAuthenticator()),
+    )
+
+    result = await handler.invoke(
+        record_id="synthetic-record",
+        credential="verified-test-credential",
         request_id="r",
         session_id="s",
     )
