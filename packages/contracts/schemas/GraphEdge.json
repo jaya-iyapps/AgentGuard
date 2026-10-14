@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evidence": {
+      "enum": [
+        "declared",
+        "observed"
+      ],
+      "title": "Evidence",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "relationship": {
+      "enum": [
+        "CAN_INVOKE",
+        "READS",
+        "DERIVED_FROM",
+        "MAY_SEND_TO"
+      ],
+      "title": "Relationship",
+      "type": "string"
+    },
+    "source": {
+      "title": "Source",
+      "type": "string"
+    },
+    "target": {
+      "title": "Target",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "source",
+    "target",
+    "relationship",
+    "evidence"
+  ],
+  "title": "GraphEdge",
+  "type": "object"
+}

@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "Classification": {
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "RESTRICTED"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "GraphEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "enum": [
+            "declared",
+            "observed"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "relationship": {
+          "enum": [
+            "CAN_INVOKE",
+            "READS",
+            "DERIVED_FROM",
+            "MAY_SEND_TO"
+          ],
+          "title": "Relationship",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "relationship",
+        "evidence"
+      ],
+      "title": "GraphEdge",
+      "type": "object"
+    },
+    "GraphNode": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Classification"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "agent",
+            "action",
+            "resource",
+            "destination"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "kind"
+      ],
+      "title": "GraphNode",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/GraphEdge"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/GraphNode"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "semantics": {
+      "const": "potential_capabilities",
+      "default": "potential_capabilities",
+      "title": "Semantics",
+      "type": "string"
+    }
+  },
+  "required": [
+    "nodes",
+    "edges"
+  ],
+  "title": "CapabilityGraph",
+  "type": "object"
+}

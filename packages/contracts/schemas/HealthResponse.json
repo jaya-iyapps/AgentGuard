@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "enforcement_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Enforcement Enabled",
+      "type": "boolean"
+    },
+    "mode": {
+      "const": "scaffold",
+      "default": "scaffold",
+      "title": "Mode",
+      "type": "string"
+    },
+    "service": {
+      "title": "Service",
+      "type": "string"
+    },
+    "status": {
+      "const": "ok",
+      "default": "ok",
+      "title": "Status",
+      "type": "string"
+    },
+    "version": {
+      "default": "0.1.0",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "service"
+  ],
+  "title": "HealthResponse",
+  "type": "object"
+}
