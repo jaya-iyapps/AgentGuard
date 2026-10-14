@@ -60,6 +60,8 @@ services:
       AG_POLICY_ADAPTER_ID: ${AG_POLICY_ADAPTER_ID:-}
       AG_POLICY_VERSION: ${AG_OPA_POLICY_VERSION:-pdp-v1}
       AG_POLICY_TIMEOUT_SECONDS: ${AG_POLICY_TIMEOUT_SECONDS:-2.0}
+      # Pass through only when explicitly configured; the archive demo is not a Compose service.
+      AG_ARCHIVE_MCP_URL:
     depends_on:
       backend:
         condition: service_healthy

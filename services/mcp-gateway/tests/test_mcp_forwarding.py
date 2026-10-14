@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from agentguard_contracts import AuthorizationResponse, PolicyDecision, TrustedContext
+from agentguard_archive_mcp import create_archive_server
 from agentguard_gateway.mcp_server import (
     APPROVED_DOWNSTREAM_ARCHIVE_TOOL,
     LocalArchiveDemo,
@@ -72,6 +73,47 @@ class InProcessArchiveServer:
                         yield session
 
 
+class RecordingArchiveSession:
+    """Record calls while preserving the official client's behavior."""
+
+    def __init__(self, session: ClientSession) -> None:
+        self.session = session
+        self.calls: list[tuple[str, dict[str, str]]] = []
+
+    async def list_tools(self):
+        return await self.session.list_tools()
+
+    async def call_tool(self, name: str, arguments: dict[str, str]):
+        self.calls.append((name, arguments))
+        return await self.session.call_tool(name, arguments)
+
+
+class ActualArchiveServer:
+    """The separate demonstration archive server over the official MCP transport."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, str]]] = []
+        self.server = create_archive_server()
+
+    @asynccontextmanager
+    async def client(self):
+        app = self.server.streamable_http_app()
+        async with self.server.session_manager.run():
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8003"
+            ) as http_client:
+                async with streamable_http_client(
+                    "http://127.0.0.1:8003/mcp", http_client=http_client
+                ) as (read_stream, write_stream, _):
+                    async with ClientSession(read_stream, write_stream) as session:
+                        await session.initialize()
+                        recording_session = RecordingArchiveSession(session)
+                        try:
+                            yield recording_session
+                        finally:
+                            self.calls.extend(recording_session.calls)
+
+
 @pytest.mark.anyio
 async def test_downstream_discovery_exposes_only_the_test_server_tool():
     archive = InProcessArchiveServer()
@@ -99,6 +141,25 @@ async def test_matching_allow_forwards_once_to_fixed_downstream_tool():
 
     assert result.isError is False
     assert archive.calls == ["record-1"]
+
+
+@pytest.mark.anyio
+async def test_matching_allow_forwards_once_to_separate_archive_server():
+    archive = ActualArchiveServer()
+    demo = LocalArchiveDemo(
+        ScriptedAuthorizationClient(response=allow_response("request-1")),
+        McpArchiveForwarder(archive.client),
+    )
+
+    result = await demo.invoke(
+        record_id="record-1",
+        trusted=trusted_test_context(),
+        request_id="request-1",
+        session_id="session-1",
+    )
+
+    assert result.isError is False
+    assert archive.calls == [(APPROVED_DOWNSTREAM_ARCHIVE_TOOL, {"record_id": "record-1"})]
 
 
 @pytest.mark.anyio
@@ -176,9 +237,81 @@ class RaisingDownstreamSession:
         raise RuntimeError("downstream transport failed")
 
 
+class UnexpectedToolSession:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    async def list_tools(self):
+        return SimpleNamespace(tools=[SimpleNamespace(name="not_archive_record")])
+
+    async def call_tool(self, name, arguments):
+        self.call_count += 1
+        raise AssertionError("an unapproved downstream tool must never be called")
+
+
+class ErrorResultDownstreamSession:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    async def list_tools(self):
+        return SimpleNamespace(tools=[SimpleNamespace(name=APPROVED_DOWNSTREAM_ARCHIVE_TOOL)])
+
+    async def call_tool(self, name, arguments):
+        self.call_count += 1
+        return SimpleNamespace(isError=True)
+
+
 @pytest.mark.anyio
 async def test_downstream_exception_is_not_retried():
     session = RaisingDownstreamSession()
+
+    @asynccontextmanager
+    async def factory():
+        yield session
+
+    demo = LocalArchiveDemo(
+        ScriptedAuthorizationClient(response=allow_response("request-1")),
+        McpArchiveForwarder(factory),
+    )
+
+    result = await demo.invoke(
+        record_id="record-1",
+        trusted=trusted_test_context(),
+        request_id="request-1",
+        session_id="session-1",
+    )
+
+    assert result.isError is True
+    assert session.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_unapproved_downstream_tool_is_not_called():
+    session = UnexpectedToolSession()
+
+    @asynccontextmanager
+    async def factory():
+        yield session
+
+    demo = LocalArchiveDemo(
+        ScriptedAuthorizationClient(response=allow_response("request-1")),
+        McpArchiveForwarder(factory),
+    )
+
+    result = await demo.invoke(
+        record_id="record-1",
+        trusted=trusted_test_context(),
+        request_id="request-1",
+        session_id="session-1",
+    )
+
+    assert result.isError is True
+    assert session.call_count == 0
+
+
+@pytest.mark.anyio
+async def test_downstream_tool_error_result_is_not_retried():
+    session = ErrorResultDownstreamSession()
 
     @asynccontextmanager
     async def factory():

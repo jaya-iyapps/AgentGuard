@@ -21,6 +21,8 @@ The PDP also has an opt-in [PostgreSQL context and provenance store](docs/postgr
 with migrations, fresh permission/revocation resolution and durable decision audits.
 See [CapabilityGraph setup, evidence semantics and API](docs/capabilitygraph.md).
 See [integration provenance, validation and VM startup](docs/integration.md).
+See [the latest MCP forwarding audit](docs/mcp-forwarding-audit.md) and
+[gateway/archive setup](services/mcp-gateway/README.md).
 
 ## Prerequisites
 
@@ -119,6 +121,7 @@ services/policy-engine/
   migrations/                        Alembic schema revisions
 services/mcp-gateway/
   agentguard_gateway/                 MCP server, forwarding, validated HTTP PDP client
+  agentguard_archive_mcp/             Separate deterministic demonstration archive MCP server
 integrations/salesforce/              Salesforce DX project and DENY-only Apex stub
 packages/contracts/
   agentguard_contracts/               Authoritative Pydantic models

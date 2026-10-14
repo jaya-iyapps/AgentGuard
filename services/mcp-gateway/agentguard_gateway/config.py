@@ -13,4 +13,5 @@ class GatewaySettings(BaseSettings):
     policy_adapter_id: str = ""
     policy_version: str = Field(default="pdp-v1", min_length=1)
     policy_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
+    archive_mcp_url: AnyHttpUrl | None = None
     mcp_transport: Literal["streamable-http", "stdio"] = "streamable-http"

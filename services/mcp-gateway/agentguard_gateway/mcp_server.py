@@ -6,8 +6,8 @@ authorization succeeds.
 """
 
 from dataclasses import dataclass, field
-from contextlib import AbstractAsyncContextManager
-from typing import Callable, Protocol
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import AsyncIterator, Callable, Protocol
 from uuid import uuid4
 
 from agentguard_contracts import (
@@ -17,21 +17,35 @@ from agentguard_contracts import (
     TrustedContext,
 )
 from mcp.client.session import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent
 
-from agentguard_gateway.interfaces import AuthorizationClient, DisabledAuthorizationClient
+from agentguard_gateway.interfaces import (
+    AuthorizationClient,
+    DisabledAuthorizationClient,
+    TrustedContextResolver,
+)
 
 
 class LocalArchiveExecutor(Protocol):
-    """A deliberately local, ephemeral executor for the archive demonstration."""
+    """An archive execution target used only after authorization succeeds."""
 
     async def archive(self, record_id: str) -> None:
-        """Record a local demonstration archive operation."""
+        """Perform one demonstration archive operation."""
         ...
 
 
 APPROVED_DOWNSTREAM_ARCHIVE_TOOL = "archive_record"
+
+
+@asynccontextmanager
+async def streamable_http_mcp_session(endpoint: str) -> AsyncIterator[ClientSession]:
+    """Connect to one explicitly configured downstream Streamable HTTP endpoint."""
+    async with streamable_http_client(endpoint) as (read_stream, write_stream, _):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            yield session
 
 
 @dataclass
@@ -44,6 +58,11 @@ class McpArchiveForwarder:
     """
 
     client_factory: Callable[[], AbstractAsyncContextManager[ClientSession]]
+
+    @classmethod
+    def from_streamable_http_endpoint(cls, endpoint: str) -> "McpArchiveForwarder":
+        """Create a lazy forwarder for an explicitly configured downstream endpoint."""
+        return cls(lambda: streamable_http_mcp_session(endpoint))
 
     async def archive(self, record_id: str) -> None:
         async with self.client_factory() as client:
@@ -87,7 +106,7 @@ def _validate_authorization_response(response: object) -> AuthorizationResponse:
 
 @dataclass
 class LocalArchiveDemo:
-    """Authorize a local demonstration archive before its only side effect."""
+    """Authorize a demonstration archive operation before its only side effect."""
 
     authorization_client: AuthorizationClient
     executor: LocalArchiveExecutor
@@ -100,12 +119,11 @@ class LocalArchiveDemo:
         request_id: str,
         session_id: str,
     ) -> CallToolResult:
-        """Run the local stub only after a verified caller receives ALLOW."""
+        """Run the configured executor only after a verified caller receives ALLOW."""
         if trusted is None:
             return _denied(
                 "AUTHENTICATION_REQUIRED",
-                "No verified caller identity is available. The local demonstration/stub "
-                "archive was not performed.",
+                "No verified caller identity is available. The archive operation was not performed.",
             )
 
         request = AuthorizationRequest(
@@ -120,7 +138,7 @@ class LocalArchiveDemo:
         except Exception:
             return _denied(
                 "AUTHORIZATION_UNAVAILABLE",
-                "Authorization failed. The local demonstration/stub archive was not performed.",
+                "Authorization failed. The archive operation was not performed.",
             )
 
         try:
@@ -128,22 +146,20 @@ class LocalArchiveDemo:
         except Exception:
             return _denied(
                 "AUTHORIZATION_RESPONSE_INVALID",
-                "Authorization returned an invalid response. The local demonstration/stub "
-                "archive was not performed.",
+                "Authorization returned an invalid response. The archive operation was not performed.",
             )
 
         decision = response.policy_decision
         if decision.request_id != sent_request_id:
             return _denied(
                 "AUTHORIZATION_REQUEST_MISMATCH",
-                "Authorization response did not match the request. The local "
-                "demonstration/stub archive was not performed.",
+                "Authorization response did not match the request. The archive operation was not performed.",
             )
 
         if decision.decision != "ALLOW":
             return _denied(
                 decision.reason_code,
-                f"{decision.explanation} The local demonstration/stub archive was not performed.",
+                f"{decision.explanation} The archive operation was not performed.",
             )
 
         try:
@@ -163,6 +179,30 @@ class LocalArchiveDemo:
         )
 
 
+@dataclass
+class AuthenticatedArchiveHandler:
+    """Keep credential resolution separate from authorization and execution."""
+
+    archive_demo: LocalArchiveDemo
+    trusted_context_resolver: TrustedContextResolver
+
+    async def invoke(
+        self,
+        *,
+        record_id: str,
+        credential: str | None,
+        request_id: str,
+        session_id: str,
+    ) -> CallToolResult:
+        trusted = await self.trusted_context_resolver.resolve(credential)
+        return await self.archive_demo.invoke(
+            record_id=record_id,
+            trusted=trusted,
+            request_id=request_id,
+            session_id=session_id,
+        )
+
+
 def create_mcp_server(
     authorization_client: AuthorizationClient | None = None,
     executor: LocalArchiveExecutor | None = None,
@@ -176,30 +216,33 @@ def create_mcp_server(
         ),
         executor=executor if executor is not None else InMemoryLocalArchiveStub(),
     )
+    archive_handler = AuthenticatedArchiveHandler(archive_demo, TrustedContextResolver())
     server = FastMCP(
         "AgentGuard MCP gateway",
         instructions=(
-            "The archive tool is a local demonstration/stub, not a production archive. "
-            "It requires verified caller identity and authorization before any local action."
+            "The archive tool is a demonstration, not a production archive. The default executor "
+            "is in-memory. A future authenticated deployment must allowlist only the separately "
+            "deployed archive_record demonstration tool after verified identity and authorization."
         ),
     )
 
     @server.tool(
         name="archive_local_demonstration",
         description=(
-            "Local demonstration/stub only. Requests an in-memory archive of a synthetic "
-            "record; this gateway currently denies unauthenticated calls and never archives "
-            "production data or forwards to external services."
+            "Demonstration only. The default executor records a synthetic record in memory. "
+            "This transport currently denies every call because no CallerAuthenticator is "
+            "configured; a future authenticated deployment must use only the allowlisted "
+            "archive_record downstream tool after authorization."
         ),
     )
     async def archive_local_demonstration(record_id: str) -> CallToolResult:
         """Request the local demonstration archive for one synthetic record."""
-        # The MCP transport has no implemented CallerAuthenticator yet.  Supplying no
-        # TrustedContext is intentional: it makes every transport invocation deny before
-        # authorization or execution rather than inventing a caller identity.
-        return await archive_demo.invoke(
+        # The MCP transport has no credential extractor or CallerAuthenticator. Passing
+        # no credential to the explicit authentication boundary intentionally denies
+        # before authorization or execution rather than inventing caller identity.
+        return await archive_handler.invoke(
             record_id=record_id,
-            trusted=None,
+            credential=None,
             request_id=str(uuid4()),
             session_id="unresolved-mcp-session",
         )

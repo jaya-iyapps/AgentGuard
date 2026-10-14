@@ -25,7 +25,12 @@ postgres = ["psycopg[binary]==3.3.6"]
 
 [tool.setuptools.packages.find]
 where = ["packages/contracts", "services/policy-engine", "services/mcp-gateway"]
-include = ["agentguard_contracts*", "agentguard_backend*", "agentguard_gateway*"]
+include = [
+  "agentguard_archive_mcp*",
+  "agentguard_contracts*",
+  "agentguard_backend*",
+  "agentguard_gateway*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "services/policy-engine/tests", "services/mcp-gateway/tests"]
